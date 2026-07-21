@@ -33,14 +33,3 @@
 | **`E`** | Eşya Al / Bırak |
 | **`F`** | İşlem Yap (Kesim/Yıkama/Masaj/Süpürme) |
 | **`G`** | Yere Eşya Bırakma |
-
----
-
-## 🛠️ Kurulum & Geliştirme (Developers)
-
-1. Projeyi bilgisayarınıza klonlayın:
-   ```bash
-   git clone https://github.com/USERNAME/TwoCut.git
-   ```
-2. **Unity Hub**'ı açın ve projeyi Unity 6 (`6000.3.10f1` veya üstü) ile projeleriniz arasına ekleyin.
-3. Projeyi açın, üst menüden `TwoCut -> Clean & Build Single Player Scene` seçeneğine basarak sahneyi otomatik kurun ve **Play (▶)** butonuna basın!
