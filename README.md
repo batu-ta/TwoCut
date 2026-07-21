@@ -1,7 +1,6 @@
 # ✂️ TwoCut - Isometric Barbershop Management Game
 
 ![Unity Version](https://img.shields.io/badge/Unity-6000.3.10f1-blue.svg)
-![License](https://img.shields.io/badge/License-MIT-green.svg)
 
 > *"Mahallenin yeni kuaförünü açtınız — ama açtığınız tek şey dükkan değil, ortağınızla omuzladığınız kocaman bir borç. Makasları kapın, koltukları hazırlayın ve zamana karşı yarışın."*
 
