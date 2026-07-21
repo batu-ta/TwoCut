@@ -151,13 +151,15 @@ namespace TwoCutGame.EditorTools
 
         private static void ClearAllSceneObjects()
         {
-            foreach (GameObject obj in Object.FindObjectsByType<GameObject>(FindObjectsSortMode.None))
+            var activeScene = EditorSceneManager.GetActiveScene();
+            GameObject[] rootObjects = activeScene.GetRootGameObjects();
+
+            foreach (GameObject obj in rootObjects)
             {
+                if (obj == null) continue;
                 if (obj.CompareTag("MainCamera") || obj.GetComponent<Light>() != null) continue;
-                if (obj.transform.parent == null)
-                {
-                    Object.DestroyImmediate(obj);
-                }
+
+                Object.DestroyImmediate(obj);
             }
         }
 
