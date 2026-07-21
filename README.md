@@ -1,7 +1,12 @@
 # ✂️ TwoCut - Isometric Barbershop Management Game
 
+
+> [!Note]
+> 
+> This game is under in development.
+
+
 ![Unity Version](https://img.shields.io/badge/Unity-6000.3.10f1-blue.svg)
-![License](https://img.shields.io/badge/License-MIT-green.svg)
 
 > *"Mahallenin yeni kuaförünü açtınız — ama açtığınız tek şey dükkan değil, ortağınızla omuzladığınız kocaman bir borç. Makasları kapın, koltukları hazırlayın ve zamana karşı yarışın."*
 
@@ -28,14 +33,3 @@
 | **`E`** | Eşya Al / Bırak |
 | **`F`** | İşlem Yap (Kesim/Yıkama/Masaj/Süpürme) |
 | **`G`** | Yere Eşya Bırakma |
-
----
-
-## 🛠️ Kurulum & Geliştirme (Developers)
-
-1. Projeyi bilgisayarınıza klonlayın:
-   ```bash
-   git clone https://github.com/USERNAME/TwoCut.git
-   ```
-2. **Unity Hub**'ı açın ve projeyi Unity 6 (`6000.3.10f1` veya üstü) ile projeleriniz arasına ekleyin.
-3. Projeyi açın, üst menüden `TwoCut -> Clean & Build Single Player Scene` seçeneğine basarak sahneyi otomatik kurun ve **Play (▶)** butonuna basın!
