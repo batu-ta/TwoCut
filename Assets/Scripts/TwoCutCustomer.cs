@@ -5,12 +5,16 @@ namespace TwoCutGame
 {
     public enum ServiceType
     {
-        Haircut,
-        HairWash,
-        HairDye,
-        Massage
+        Haircut,    // Saç Kesimi (Makas ile)
+        HairWash,   // Saç Yıkama (Şampuan & Yıkama Koltuğu)
+        HairDye,    // Saç Boyama (Boya Şişesi & Masası)
+        Massage     // Masaj (Masaj Koltuğu & Rahatlatıcı Masaj Aleti)
     }
 
+    /// <summary>
+    /// TwoCut Customer NPC script.
+    /// Manages requested services (Haircut, Wash, Dye, Massage), patience meter, dirt spawning, and payment.
+    /// </summary>
     public class TwoCutCustomer : MonoBehaviour
     {
         [Header("Customer Identification")]
@@ -21,8 +25,8 @@ namespace TwoCutGame
         public bool needsSecondService = false;
         public ServiceType secondServiceNeeded = ServiceType.Massage;
 
-        public bool isFirstServiceDone = false;
-        public bool isAllServicesDone = false;
+        [HideInInspector] public bool isFirstServiceDone = false;
+        [HideInInspector] public bool isAllServicesDone = false;
 
         [Header("Patience Countdown")]
         public float maxPatienceTime = 40f;
@@ -42,12 +46,15 @@ namespace TwoCutGame
         {
             currentPatience = maxPatienceTime;
             customerRenderer = GetComponent<Renderer>();
+
+            Debug.Log($"[TwoCut Customer] {customerName} dükkana geldi! İstenen İşlem 1: {firstServiceNeeded} | İstenen İşlem 2: {(needsSecondService ? secondServiceNeeded.ToString() : "Yok")}");
         }
 
         private void Update()
         {
             if (isAllServicesDone) return;
 
+            // Reduce patience (affected by floor dirtiness!)
             float penalty = DirtCleanerSystem.Instance != null ? DirtCleanerSystem.Instance.GetPatiencePenaltyFactor() : 1.0f;
             currentPatience -= Time.deltaTime * penalty;
 
@@ -63,13 +70,17 @@ namespace TwoCutGame
 
             ServiceType targetService = !isFirstServiceDone ? firstServiceNeeded : secondServiceNeeded;
 
+            // Check if station matches required service
             if (stationService != targetService)
             {
+                Debug.LogWarning($"[TwoCut Customer] Yanlış koltuktayız! Müşterinin istediği: {targetService}");
                 return;
             }
 
             currentActions++;
+            Debug.Log($"[TwoCut Customer] İşlem yapılıyor... ({currentActions}/{requiredActions})");
 
+            // Visual feedback
             if (customerRenderer != null)
             {
                 if (targetService == ServiceType.HairDye) customerRenderer.material.color = Color.magenta;
@@ -85,6 +96,7 @@ namespace TwoCutGame
                 {
                     isFirstServiceDone = true;
 
+                    // Spawn hair clipping mess on floor for Haircut/Dye
                     if (targetService == ServiceType.Haircut || targetService == ServiceType.HairDye)
                     {
                         DirtCleanerSystem.Instance?.SpawnHairClippingDirt(transform.position);
@@ -93,6 +105,10 @@ namespace TwoCutGame
                     if (!needsSecondService)
                     {
                         CompleteAllServices();
+                    }
+                    else
+                    {
+                        Debug.Log($"[TwoCut Customer] 1. Hizmet bitti! Şimdi 2. Hizmet: {secondServiceNeeded}");
                     }
                 }
                 else
@@ -109,9 +125,15 @@ namespace TwoCutGame
             int totalPay = paymentAmount;
             if (needsSecondService) totalPay += 45;
 
+            // Add tip if patience > 50%
             if (currentPatience > maxPatienceTime * 0.5f)
             {
                 totalPay += tipBonus;
+                Debug.Log($"⭐ [TwoCut Customer] Harika hizmet! Bahşişli Ödeme: ${totalPay}");
+            }
+            else
+            {
+                Debug.Log($"✅ [TwoCut Customer] Hizmet tamamlandı: ${totalPay}");
             }
 
             TwoCutEconomyManager.Instance?.AddEarnings(totalPay);
@@ -120,6 +142,7 @@ namespace TwoCutGame
 
         private void LeaveAngry()
         {
+            Debug.LogWarning($"😡 [TwoCut Customer] {customerName} sabrı tükendi ve sinirle dükkanı terk etti!");
             Destroy(gameObject);
         }
     }

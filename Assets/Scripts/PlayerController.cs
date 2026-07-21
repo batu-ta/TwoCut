@@ -2,11 +2,18 @@ using UnityEngine;
 
 namespace HairSalonGame
 {
+    /// <summary>
+    /// Overcooked-style Top-Down Hairdresser Movement Controller with Online Multiplayer Support.
+    /// Controls local player (WASD) and prepares network sync architecture for Player 2 (Online Partner).
+    /// </summary>
     [RequireComponent(typeof(Rigidbody))]
     public class PlayerController : MonoBehaviour
     {
         [Header("Multiplayer / Network Setup")]
+        [Tooltip("If true, this character is controlled locally on this PC. If false, controlled by online player.")]
         public bool isLocalPlayer = true;
+
+        [Tooltip("Player index (1 = Local Host Player, 2 = Online Client Partner).")]
         public int playerIndex = 1;
 
         [Header("Movement Configuration")]
@@ -34,11 +41,15 @@ namespace HairSalonGame
             rb.constraints = RigidbodyConstraints.FreezeRotationX | RigidbodyConstraints.FreezeRotationZ;
             rb.interpolation = RigidbodyInterpolation.Interpolate;
 
-            if (mainCamera == null) mainCamera = Camera.main;
+            if (mainCamera == null)
+            {
+                mainCamera = Camera.main;
+            }
         }
 
         private void Update()
         {
+            // If this is an online partner player object, ignore local keyboard WASD input!
             if (!isLocalPlayer) return;
 
             HandleInput();
@@ -51,7 +62,7 @@ namespace HairSalonGame
 
             if (isDashing)
             {
-                rb.velocity = transform.forward * dashForce;
+                rb.linearVelocity = transform.forward * dashForce;
             }
             else
             {
@@ -66,6 +77,7 @@ namespace HairSalonGame
 
             moveInput = new Vector3(horizontal, 0f, vertical).normalized;
 
+            // Dash / Quick Rush (Left Shift)
             if (Input.GetKeyDown(KeyCode.LeftShift) && cooldownTimer <= 0f && moveInput.sqrMagnitude > 0.1f)
             {
                 isDashing = true;
@@ -77,18 +89,24 @@ namespace HairSalonGame
             {
                 Vector3 cameraForward = mainCamera != null ? mainCamera.transform.forward : Vector3.forward;
                 Vector3 cameraRight = mainCamera != null ? mainCamera.transform.right : Vector3.right;
-                cameraForward.y = 0f; cameraRight.y = 0f;
-                cameraForward.Normalize(); cameraRight.Normalize();
+
+                cameraForward.y = 0f;
+                cameraRight.y = 0f;
+                cameraForward.Normalize();
+                cameraRight.Normalize();
 
                 moveDirection = (cameraForward * moveInput.z + cameraRight * moveInput.x).normalized;
             }
-            else moveDirection = Vector3.zero;
+            else
+            {
+                moveDirection = Vector3.zero;
+            }
         }
 
         private void MovePlayer()
         {
             Vector3 targetVelocity = moveDirection * moveSpeed;
-            rb.velocity = new Vector3(targetVelocity.x, rb.velocity.y, targetVelocity.z);
+            rb.linearVelocity = new Vector3(targetVelocity.x, rb.linearVelocity.y, targetVelocity.z);
 
             if (moveDirection.sqrMagnitude > 0.01f)
             {

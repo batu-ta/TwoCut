@@ -3,6 +3,10 @@ using TwoCutGame;
 
 namespace HairSalonGame
 {
+    /// <summary>
+    /// Game Manager for Hair Salon game.
+    /// Controls shift timer, salon money earned, customer spawn interval, and score UI.
+    /// </summary>
     public class SalonGameManager : MonoBehaviour
     {
         public static SalonGameManager Instance { get; private set; }
@@ -26,7 +30,7 @@ namespace HairSalonGame
         private void Start()
         {
             timeRemaining = shiftDuration;
-            spawnTimer = 2f;
+            spawnTimer = 2f; // Spawn first customer quickly
         }
 
         private void Update()
@@ -52,6 +56,7 @@ namespace HairSalonGame
         {
             if (customerPrefab == null || availableChairs == null || availableChairs.Length == 0) return;
 
+            // Find an empty hair chair
             foreach (var chair in availableChairs)
             {
                 if (chair != null && !chair.HasCustomer())
@@ -61,6 +66,7 @@ namespace HairSalonGame
 
                     if (newCustomer != null)
                     {
+                        // Randomly assign service needed (Haircut, HairWash, HairDye, Massage)
                         System.Array services = System.Enum.GetValues(typeof(ServiceType));
                         newCustomer.firstServiceNeeded = (ServiceType)services.GetValue(Random.Range(0, services.Length));
 

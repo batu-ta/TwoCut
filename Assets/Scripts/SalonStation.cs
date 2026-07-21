@@ -16,13 +16,20 @@ namespace HairSalonGame
         TrashBin            // Çöp Kovası
     }
 
+    /// <summary>
+    /// Hair Salon Station / Chair script for TwoCut.
+    /// Manages room location, customer seating, tool placement, and hairdresser action interactions.
+    /// </summary>
     public class SalonStation : MonoBehaviour
     {
         [Header("Room & Station Info")]
         public string roomName = "Oda 1 - Saç Kesim Odası";
         public StationType stationType = StationType.ClearTable;
 
+        [Tooltip("Anchor point where items or customers sit/stand.")]
         public Transform itemOrCustomerPoint;
+
+        [Tooltip("If ToolRackContainer, prefab of tool spawned.")]
         public GameObject toolPrefab;
 
         private SalonItem currentItem;
@@ -103,6 +110,7 @@ namespace HairSalonGame
             {
                 SalonItem heldItem = player.GetHeldItem();
                 
+                // Map station type to TwoCut ServiceType
                 ServiceType currentService = ServiceType.Haircut;
                 if (stationType == StationType.HairWashSink) currentService = ServiceType.HairWash;
                 else if (stationType == StationType.HairDyeStation) currentService = ServiceType.HairDye;

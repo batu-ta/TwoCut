@@ -2,6 +2,10 @@ using UnityEngine;
 
 namespace TwoCutGame
 {
+    /// <summary>
+    /// TwoCut HUD & Game UI Manager.
+    /// Draws clean OnGUI overlays for Day Number, Money Vault, Debt Target, Shift Timer, and Cleanliness.
+    /// </summary>
     public class TwoCutGameUI : MonoBehaviour
     {
         private void OnGUI()
@@ -11,11 +15,13 @@ namespace TwoCutGame
             var eco = TwoCutEconomyManager.Instance;
             var dirt = DirtCleanerSystem.Instance;
 
+            // Define UI Style
             GUIStyle headerStyle = new GUIStyle(GUI.skin.box);
             headerStyle.fontSize = 16;
             headerStyle.fontStyle = FontStyle.Bold;
             headerStyle.alignment = TextAnchor.MiddleLeft;
 
+            // Top Left Dashboard Box
             GUILayout.BeginArea(new Rect(20, 20, 360, 210), headerStyle);
             GUILayout.Label($"✂️  <b>TWOCUT - DÜKKAN YÖNETİMİ</b>", GUILayout.Height(30));
             GUILayout.Label($"📅 <b>Gün:</b> {eco.currentDay} / 7");
@@ -34,6 +40,7 @@ namespace TwoCutGame
 
             GUILayout.EndArea();
 
+            // Shift End or Bankrupt Popup
             if (eco.isBankrupt)
             {
                 GUI.Box(new Rect(Screen.width / 2 - 180, Screen.height / 2 - 80, 360, 160), "❌ İFLAS EDİLDİ!\n\nBorç taksitleri ödenemedi dükkan icralık oldu!\nTekrar başlamak için Play'e yeniden basın.");

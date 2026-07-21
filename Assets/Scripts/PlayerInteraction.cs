@@ -3,6 +3,9 @@ using TwoCutGame;
 
 namespace HairSalonGame
 {
+    /// <summary>
+    /// Hairdresser Player Interaction System for TwoCut with Online Multiplayer support.
+    /// </summary>
     public class PlayerInteraction : MonoBehaviour
     {
         [Header("Multiplayer Setup")]

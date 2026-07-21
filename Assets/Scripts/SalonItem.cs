@@ -13,6 +13,9 @@ namespace HairSalonGame
         Broom           // Süpürge / Temizlik Aleti
     }
 
+    /// <summary>
+    /// Represents any holdable tool or product in TwoCut.
+    /// </summary>
     public class SalonItem : MonoBehaviour
     {
         [Header("Item Properties")]
