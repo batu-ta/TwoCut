@@ -40,6 +40,11 @@ namespace TwoCutGame
         public int paymentAmount = 60;
         public int tipBonus = 25;
 
+        [Header("Movement & Queue Settings")]
+        [HideInInspector] public Vector3 targetPosition;
+        [HideInInspector] public float moveSpeed = 5f;
+        [HideInInspector] public bool isSeated = false;
+
         private Renderer customerRenderer;
 
         private void Start()
@@ -52,11 +57,45 @@ namespace TwoCutGame
 
         private void Update()
         {
+            // Yumuşak Yürüme Mekaniği
+            if (transform.parent == null)
+            {
+                // Sırada beklerken dünya koordinatlarında hareket et
+                if (Vector3.Distance(transform.position, targetPosition) > 0.05f)
+                {
+                    transform.position = Vector3.MoveTowards(transform.position, targetPosition, moveSpeed * Time.deltaTime);
+                    Vector3 dir = (targetPosition - transform.position).normalized;
+                    dir.y = 0;
+                    if (dir.sqrMagnitude > 0.001f)
+                    {
+                        transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(dir), Time.deltaTime * 8f);
+                    }
+                }
+            }
+            else
+            {
+                // Koltuğa atandıktan sonra koltuğun yerel pozisyonuna (Y=0.6f) yürü
+                if (Vector3.Distance(transform.localPosition, targetPosition) > 0.05f)
+                {
+                    transform.localPosition = Vector3.MoveTowards(transform.localPosition, targetPosition, moveSpeed * Time.deltaTime);
+                    transform.localRotation = Quaternion.Slerp(transform.localRotation, Quaternion.identity, Time.deltaTime * 8f);
+                }
+            }
+
             if (isAllServicesDone) return;
 
-            // Reduce patience (affected by floor dirtiness!)
-            float penalty = DirtCleanerSystem.Instance != null ? DirtCleanerSystem.Instance.GetPatiencePenaltyFactor() : 1.0f;
-            currentPatience -= Time.deltaTime * penalty;
+            // Sabır Azalma Mekaniği
+            if (isSeated)
+            {
+                // Koltuktayken kirlilik oranına göre sabır düşer
+                float penalty = DirtCleanerSystem.Instance != null ? DirtCleanerSystem.Instance.GetPatiencePenaltyFactor() : 1.0f;
+                currentPatience -= Time.deltaTime * penalty;
+            }
+            else
+            {
+                // Sırada beklerken sabır çok daha yavaş düşer (örneğin 0.3x hızda)
+                currentPatience -= Time.deltaTime * 0.3f;
+            }
 
             if (currentPatience <= 0f)
             {
@@ -70,14 +109,47 @@ namespace TwoCutGame
 
             ServiceType targetService = !isFirstServiceDone ? firstServiceNeeded : secondServiceNeeded;
 
-            // Check if station matches required service
+            // 1. Koltuk ile müşterinin istediği hizmet uyuşuyor mu?
             if (stationService != targetService)
             {
                 Debug.LogWarning($"[TwoCut Customer] Yanlış koltuktayız! Müşterinin istediği: {targetService}");
                 return;
             }
 
-            currentActions++;
+            // 2. Doğru alet elinizde mi kontrolü
+            if (targetService == ServiceType.Haircut)
+            {
+                if (toolUsed == null || toolUsed.itemType != ItemType.Scissors)
+                {
+                    Debug.LogWarning("[TwoCut Customer] Saç kesmek için elinizde MAKAS (Scissors) olmalı!");
+                    return;
+                }
+            }
+            else if (targetService == ServiceType.HairWash)
+            {
+                if (toolUsed == null || toolUsed.itemType != ItemType.ShampooBottle)
+                {
+                    Debug.LogWarning("[TwoCut Customer] Saç yıkamak için elinizde ŞAMPUAN (ShampooBottle) olmalı!");
+                    return;
+                }
+            }
+            else if (targetService == ServiceType.HairDye)
+            {
+                if (toolUsed == null || (toolUsed.itemType != ItemType.DyeBottle_Red && toolUsed.itemType != ItemType.DyeBottle_Blonde))
+                {
+                    Debug.LogWarning("[TwoCut Customer] Boyama yapmak için elinizde BOYA (DyeBottle) olmalı!");
+                    return;
+                }
+            }
+
+            // Altın Makas yükseltmesi varsa saç kesim hızını 2 kat yap
+            int progressIncrement = 1;
+            if (targetService == ServiceType.Haircut && TwoCutShopUpgradeManager.Instance != null && TwoCutShopUpgradeManager.Instance.hasGoldenScissors)
+            {
+                progressIncrement = 2;
+            }
+
+            currentActions += progressIncrement;
             Debug.Log($"[TwoCut Customer] İşlem yapılıyor... ({currentActions}/{requiredActions})");
 
             // Visual feedback
@@ -143,6 +215,14 @@ namespace TwoCutGame
         private void LeaveAngry()
         {
             Debug.LogWarning($"😡 [TwoCut Customer] {customerName} sabrı tükendi ve sinirle dükkanı terk etti!");
+            
+            // Eğer sıradayken sabrı bittiyse sıradan çıkar ve arkadaki sırayı kaydır
+            if (SalonGameManager.Instance != null && SalonGameManager.Instance.waitingQueue.Contains(this))
+            {
+                SalonGameManager.Instance.waitingQueue.Remove(this);
+                SalonGameManager.Instance.UpdateQueuePositions();
+            }
+
             Destroy(gameObject);
         }
     }

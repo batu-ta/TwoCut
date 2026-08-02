@@ -38,7 +38,7 @@ namespace HairSalonGame
         private void Awake()
         {
             rb = GetComponent<Rigidbody>();
-            rb.constraints = RigidbodyConstraints.FreezeRotationX | RigidbodyConstraints.FreezeRotationZ;
+            rb.constraints = RigidbodyConstraints.FreezeRotation;
             rb.interpolation = RigidbodyInterpolation.Interpolate;
 
             if (mainCamera == null)

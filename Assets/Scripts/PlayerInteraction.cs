@@ -37,10 +37,22 @@ namespace HairSalonGame
             HandleInput();
         }
 
+        private bool IsItemOnGround(SalonItem item)
+        {
+            if (item == null) return false;
+            // Bir oyuncunun elinde veya bir istasyonda durmuyorsa yerdedir
+            if (item.GetComponentInParent<PlayerInteraction>() != null) return false;
+            if (item.GetComponentInParent<SalonStation>() != null) return false;
+            return true;
+        }
+
         private void DetectInteractable()
         {
-            Vector3 checkPosition = transform.position + transform.forward * interactDistance;
-            Collider[] hits = Physics.OverlapSphere(checkPosition, interactRadius, interactLayer);
+            // Karakterin çembersel yakınına (tüm yönlerde) gelen objeleri algılar
+            Vector3 checkPosition = transform.position;
+            checkPosition.y = 0.5f;
+
+            Collider[] hits = Physics.OverlapSphere(checkPosition, interactDistance, interactLayer);
 
             SalonStation closestStation = null;
             SalonItem closestGroundItem = null;
@@ -61,7 +73,7 @@ namespace HairSalonGame
                 }
 
                 SalonItem item = hit.GetComponentInParent<SalonItem>();
-                if (item != null && item != currentHeldItem && item.transform.parent == null)
+                if (item != null && item != currentHeldItem && IsItemOnGround(item))
                 {
                     float dist = Vector3.Distance(transform.position, item.transform.position);
                     if (dist < minDistance)
@@ -139,38 +151,88 @@ namespace HairSalonGame
             }
         }
 
+        private void IgnoreCollisionsWithItem(SalonItem item, bool ignore)
+        {
+            Collider playerCol = GetComponent<Collider>();
+            if (playerCol == null || item == null) return;
+
+            Collider[] itemCols = item.GetComponentsInChildren<Collider>();
+            foreach (var col in itemCols)
+            {
+                if (col != null)
+                {
+                    Physics.IgnoreCollision(playerCol, col, ignore);
+                }
+            }
+        }
+
         public void PickUpItem(SalonItem item)
         {
             if (item == null) return;
+
+            // Oyuncu ile makas arasındaki çarpışmayı engelle (iç içe geçip havaya fırlatmayı önler)
+            IgnoreCollisionsWithItem(item, true);
 
             currentHeldItem = item;
             item.transform.SetParent(holdPoint != null ? holdPoint : transform);
             item.transform.localPosition = Vector3.zero;
             item.transform.localRotation = Quaternion.identity;
 
+            // FİZİK KAYMASINI (Drift) ÖNLEME:
             Rigidbody itemRb = item.GetComponent<Rigidbody>();
-            if (itemRb != null) itemRb.isKinematic = true;
+            if (itemRb != null)
+            {
+                Destroy(itemRb);
+            }
 
-            Collider col = item.GetComponent<Collider>();
-            if (col != null) col.enabled = false;
+            // Mevlana dönme hatasını önlemek için çocuk objeler dahil tüm colliderları kapatıyoruz
+            Collider[] colliders = item.GetComponentsInChildren<Collider>();
+            foreach (var col in colliders)
+            {
+                col.enabled = false;
+            }
+
+            // Karakterin fiziksel dönme ivmelerini sıfırlıyoruz
+            Rigidbody playerRb = GetComponent<Rigidbody>();
+            if (playerRb != null)
+            {
+                playerRb.angularVelocity = Vector3.zero;
+            }
         }
 
         public void DropItemOnGround()
         {
             if (currentHeldItem == null) return;
 
-            Vector3 dropPos = transform.position + transform.forward * 1.0f;
-            dropPos.y = 0.2f;
+            // Bırakmadan önce de çarpışmayı yoksaymayı sürdür
+            IgnoreCollisionsWithItem(currentHeldItem, true);
+
+            Vector3 dropPos = transform.position + transform.forward * 1.2f;
+            dropPos.y = 0.25f; // Masadan veya engelden hafif yukarıda bırakarak sıkışmayı önleriz
 
             currentHeldItem.transform.SetParent(null);
             currentHeldItem.transform.position = dropPos;
             currentHeldItem.transform.rotation = Quaternion.identity;
 
-            Collider col = currentHeldItem.GetComponent<Collider>();
-            if (col != null) col.enabled = true;
+            // Yere bırakıldığında tüm colliderları tekrar aktif ediyoruz
+            Collider[] colliders = currentHeldItem.GetComponentsInChildren<Collider>();
+            foreach (var col in colliders)
+            {
+                col.enabled = true;
+            }
 
+            // Yere bırakıldığında yer çekimiyle düşmesi için Rigidbody bileşenini yeniden oluşturuyoruz
             Rigidbody itemRb = currentHeldItem.GetComponent<Rigidbody>();
-            if (itemRb != null) itemRb.isKinematic = false;
+            if (itemRb == null)
+            {
+                itemRb = currentHeldItem.gameObject.AddComponent<Rigidbody>();
+                itemRb.interpolation = RigidbodyInterpolation.Interpolate;
+            }
+            itemRb.isKinematic = false;
+            itemRb.useGravity = true; // Yerçekimini aktif et
+            itemRb.detectCollisions = true;
+            itemRb.linearVelocity = Vector3.zero; // Kalıntı hızları sıfırla
+            itemRb.angularVelocity = Vector3.zero; // Kalıntı dönmeleri sıfırla
 
             currentHeldItem = null;
         }
@@ -182,7 +244,9 @@ namespace HairSalonGame
         {
             if (!isLocalPlayer) return;
             Gizmos.color = Color.cyan;
-            Gizmos.DrawWireSphere(transform.position + transform.forward * interactDistance, interactRadius);
+            Vector3 center = transform.position;
+            center.y = 0.5f;
+            Gizmos.DrawWireSphere(center, interactDistance);
         }
     }
 }
