@@ -1,6 +1,5 @@
 using System.Collections.Generic;
 using UnityEngine;
-
 public class CustomerManager : MonoBehaviour
 {
     public GameObject customerPrefab;
@@ -28,8 +27,8 @@ public class CustomerManager : MonoBehaviour
 
     void SpawnCustomer()
     {
-        // Müþteri spawnPoint'te doðuyor
-        GameObject newObj = Instantiate(customerPrefab, spawnPoint.position, Quaternion.identity);
+        // Müþteri spawnPoint'te doðuyor
+        GameObject newObj = Instantiate(customerPrefab, spawnPoint.position, Quaternion.identity);
         Customer newCustomer = newObj.GetComponent<Customer>();
 
         queue.Add(newCustomer);
@@ -40,8 +39,8 @@ public class CustomerManager : MonoBehaviour
     {
         for (int i = 0; i < queue.Count; i++)
         {
-            // Iþýnlamak yerine, ilgili sýradaki pozisyonu hedef olarak veriyoruz
-            queue[i].MoveTo(queuePositions[i].position);
+            // Iþýnlamak yerine, ilgili sýradaki pozisyonu hedef olarak veriyoruz
+            queue[i].MoveTo(queuePositions[i].position);
         }
     }
 
@@ -54,6 +53,6 @@ public class CustomerManager : MonoBehaviour
 
             firstCustomer.StartService();
             UpdateQueuePositions(); // Sýradakiler bir öndeki noktaya doðru yürümeye baþlar
-        }
+        }
     }
 }
