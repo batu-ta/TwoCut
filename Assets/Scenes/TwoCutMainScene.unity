@@ -1645,53 +1645,6 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 1445822592517381345, guid: fc35ef6e0bd914a458761fedaf7eba12, type: 3}
   m_PrefabInstance: {fileID: 5926632672519291169}
   m_PrefabAsset: {fileID: 0}
---- !u!1 &1295158613
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 1295158615}
-  - component: {fileID: 1295158614}
-  m_Layer: 0
-  m_Name: DirtCleanerSystem
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!114 &1295158614
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1295158613}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: b2222222222222222222222222222222, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::TwoCutGame.DirtCleanerSystem
-  cleanlinessPercent: 100
-  hairClippingPrefab: {fileID: 0}
-  floorDirtSpawnPoints: []
---- !u!4 &1295158615
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1295158613}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1356330624 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 1275524380187860, guid: 10d090d82c7a242b7878c8b0681d9f52, type: 3}
@@ -1743,8 +1696,8 @@ BoxCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
-  m_Size: {x: 0.30630174, y: 0.2, z: 0.13168634}
-  m_Center: {x: -0.006367688, y: 0.0000000012425707, z: 0}
+  m_Size: {x: 0.30630174, y: 0.2, z: 0.13168637}
+  m_Center: {x: -0.006367688, y: 0, z: -0.000000011360647}
 --- !u!114 &1356330627
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2314,50 +2267,6 @@ MonoBehaviour:
   stationType: 2
   itemOrCustomerPoint: {fileID: 0}
   toolPrefab: {fileID: 0}
---- !u!1 &1996892384
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 1996892386}
-  - component: {fileID: 1996892385}
-  m_Layer: 0
-  m_Name: TwoCutGameUI
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!114 &1996892385
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1996892384}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: b5555555555555555555555555555555, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::TwoCutGame.TwoCutGameUI
---- !u!4 &1996892386
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1996892384}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!4 &2077180431 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 5733316458396650981, guid: fc35ef6e0bd914a458761fedaf7eba12, type: 3}
@@ -2428,9 +2337,7 @@ SceneRoots:
   - {fileID: 200001}
   - {fileID: 1521923065}
   - {fileID: 481417640}
-  - {fileID: 1295158615}
   - {fileID: 1108364101}
-  - {fileID: 1996892386}
   - {fileID: 1861964525}
   - {fileID: 454678190}
   - {fileID: 5926632672519291169}
