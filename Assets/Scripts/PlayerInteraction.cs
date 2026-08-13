@@ -83,7 +83,7 @@ namespace HairSalonGame
                     }
                 }
 
-                if (hit.CompareTag("Dirt") || hit.name.Contains("HairClipping") || hit.name.Contains("Dirt"))
+                if (hit.name.Contains("HairClipping") || hit.name.Contains("Dirt"))
                 {
                     float dist = Vector3.Distance(transform.position, hit.transform.position);
                     if (dist < minDistance)

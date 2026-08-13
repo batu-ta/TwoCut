@@ -35,6 +35,8 @@ namespace HairSalonGame
         private float dashTimer;
         private float cooldownTimer;
 
+        public bool IsDashing => isDashing;
+
         private void Awake()
         {
             rb = GetComponent<Rigidbody>();
