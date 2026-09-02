@@ -5,97 +5,165 @@ namespace TwoCutGame
 {
     public enum ServiceType
     {
-        Haircut,    // Saç Kesimi (Makas ile)
-        HairWash,   // Saç Yıkama (Şampuan & Yıkama Koltuğu)
-        HairDye,    // Saç Boyama (Boya Şişesi & Masası)
-        Massage     // Masaj (Masaj Koltuğu & Rahatlatıcı Masaj Aleti)
+        Haircut,    // Saç Kesimi
+        HairWash,   // Saç Yıkama
+        HairDye,    // Saç Boyama
+        Massage     // Masaj
+    }
+
+    public enum CustomerState
+    {
+        WaitingInQueue,
+        WalkingToStation,
+        SeatedWaitingForService,
+        UndergoingService,
+        ServiceCompletedLeaving,
+        AngryLeaving
     }
 
     /// <summary>
-    /// TwoCut Customer NPC script.
-    /// Manages requested services (Haircut, Wash, Dye, Massage), patience meter, dirt spawning, and payment.
+    /// TwoCut Customer AI & State Machine.
+    /// Manages customer queue waiting, being guided to a chair by the hairdresser player,
+    /// receiving hair services, paying with tips, and reaction dialogues.
     /// </summary>
+    [RequireComponent(typeof(CustomerWorldUI))]
     public class TwoCutCustomer : MonoBehaviour
     {
-        [Header("Customer Identification")]
+        [Header("Customer Identity")]
         public string customerName = "Müşteri";
+        public CustomerState state = CustomerState.WaitingInQueue;
 
-        [Header("Requested Services")]
+        [Header("Desired Services")]
         public ServiceType firstServiceNeeded = ServiceType.Haircut;
-        public bool needsSecondService = false;
         public ServiceType secondServiceNeeded = ServiceType.Massage;
+        public bool needsSecondService = false;
+        public bool isFirstServiceDone = false;
+        public bool isAllServicesDone = false;
 
-        [HideInInspector] public bool isFirstServiceDone = false;
-        [HideInInspector] public bool isAllServicesDone = false;
+        [Header("Assigned Station")]
+        public SalonStation assignedStation;
 
         [Header("Patience Countdown")]
-        public float maxPatienceTime = 40f;
+        public float maxPatienceTime = 45f;
         public float currentPatience;
 
         [Header("Action Progress")]
-        public int requiredActions = 5;
+        public int requiredActions = 4;
         public int currentActions = 0;
 
-        [Header("Payment")]
-        public int paymentAmount = 60;
-        public int tipBonus = 25;
+        [Header("Payment & Economy")]
+        public int paymentAmount = 75;
+        public int tipBonus = 30;
 
-        [Header("Movement & Queue Settings")]
-        [HideInInspector] public Vector3 targetPosition;
-        [HideInInspector] public float moveSpeed = 5f;
-        [HideInInspector] public bool isSeated = false;
+        [Header("Movement Settings")]
+        public Vector3 targetPosition;
+        public float moveSpeed = 4.5f;
 
         private Renderer customerRenderer;
+        private CustomerWorldUI worldUI;
+        private static readonly string[] TurkishNames = {
+            "Ahmet", "Mehmet", "Can", "Burak", "Emre", "Barış", "Deniz", "Efe", "Murat", "Oğuz"
+        };
+
+        private void Awake()
+        {
+            customerName = TurkishNames[Random.Range(0, TurkishNames.Length)];
+            worldUI = GetComponent<CustomerWorldUI>();
+            customerRenderer = GetComponentInChildren<Renderer>();
+
+            // Karakterlerin tek sıra halinde yürürken birbirine çarpıp takılmaması için
+            CapsuleCollider col = GetComponent<CapsuleCollider>();
+            if (col != null)
+            {
+                col.isTrigger = true;
+                col.center = new Vector3(0f, 0.9f, 0f);
+                col.height = 1.8f;
+                col.radius = 0.35f;
+            }
+        }
 
         private void Start()
         {
             currentPatience = maxPatienceTime;
-            customerRenderer = GetComponent<Renderer>();
+            // Başlangıçta targetPosition hemen transform.position kalmasın, hedef sırasına yürüsün
 
-            Debug.Log($"[TwoCut Customer] {customerName} dükkana geldi! İstenen İşlem 1: {firstServiceNeeded} | İstenen İşlem 2: {(needsSecondService ? secondServiceNeeded.ToString() : "Yok")}");
+            if (worldUI != null)
+            {
+                worldUI.ShowDialogue($"Selam! {GetServiceName(firstServiceNeeded)} istiyorum.", 3f);
+            }
+
+            TwoCutAudioManager.Instance?.PlayCustomerBell();
+            Debug.Log($"[TwoCut Customer] {customerName} kapıdan girdi! İstenen: {firstServiceNeeded}");
         }
 
         private void Update()
         {
-            // Yumuşak Yürüme Mekaniği
-            if (transform.parent == null)
+            HandleMovement();
+            HandlePatience();
+        }
+
+        private void HandleMovement()
+        {
+            if (state == CustomerState.SeatedWaitingForService || state == CustomerState.UndergoingService)
             {
-                // Sırada beklerken dünya koordinatlarında hareket et
-                if (Vector3.Distance(transform.position, targetPosition) > 0.05f)
+                // Koltuğa oturma kilidi
+                if (assignedStation != null)
                 {
-                    transform.position = Vector3.MoveTowards(transform.position, targetPosition, moveSpeed * Time.deltaTime);
-                    Vector3 dir = (targetPosition - transform.position).normalized;
-                    dir.y = 0;
-                    if (dir.sqrMagnitude > 0.001f)
-                    {
-                        transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(dir), Time.deltaTime * 8f);
-                    }
+                    Transform seat = assignedStation.itemOrCustomerPoint != null ? assignedStation.itemOrCustomerPoint : assignedStation.transform;
+                    transform.position = Vector3.MoveTowards(transform.position, seat.position + Vector3.up * 0.4f, moveSpeed * Time.deltaTime);
+                    transform.rotation = Quaternion.Slerp(transform.rotation, seat.rotation, Time.deltaTime * 10f);
+                }
+                return;
+            }
+
+            // Yürüme hareketi (Kapıdan sıraya veya sıradan koltuğa)
+            float dist = Vector3.Distance(transform.position, targetPosition);
+            if (dist > 0.1f)
+            {
+                transform.position = Vector3.MoveTowards(transform.position, targetPosition, moveSpeed * Time.deltaTime);
+                Vector3 dir = (targetPosition - transform.position).normalized;
+                dir.y = 0;
+                if (dir.sqrMagnitude > 0.001f)
+                {
+                    transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(dir), Time.deltaTime * 12f);
                 }
             }
             else
             {
-                // Koltuğa atandıktan sonra koltuğun yerel pozisyonuna (Y=0.6f) yürü
-                if (Vector3.Distance(transform.localPosition, targetPosition) > 0.05f)
+                // Hedefe varıldı
+                if (state == CustomerState.WaitingInQueue)
                 {
-                    transform.localPosition = Vector3.MoveTowards(transform.localPosition, targetPosition, moveSpeed * Time.deltaTime);
-                    transform.localRotation = Quaternion.Slerp(transform.localRotation, Quaternion.identity, Time.deltaTime * 8f);
+                    // Sırada dururken salona doğru baksın (+X yönü veya +Z yönü)
+                    Quaternion frontFacing = Quaternion.Euler(0f, 90f, 0f);
+                    transform.rotation = Quaternion.Slerp(transform.rotation, frontFacing, Time.deltaTime * 8f);
+                }
+                else if (state == CustomerState.WalkingToStation && assignedStation != null)
+                {
+                    SitDownAtStation();
+                }
+                else if (state == CustomerState.ServiceCompletedLeaving || state == CustomerState.AngryLeaving)
+                {
+                    Destroy(gameObject);
                 }
             }
+        }
 
-            if (isAllServicesDone) return;
+        private void HandlePatience()
+        {
+            if (isAllServicesDone || state == CustomerState.ServiceCompletedLeaving || state == CustomerState.AngryLeaving) return;
 
-            // Sabır Azalma Mekaniği
-            if (isSeated)
+            float decayRate = 1.0f;
+            if (state == CustomerState.WaitingInQueue)
             {
-                // Koltuktayken kirlilik oranına göre sabır düşer
+                decayRate = 0.4f; // Sırada beklerken sabır daha yavaş tükenir
+            }
+            else if (state == CustomerState.SeatedWaitingForService)
+            {
                 float penalty = DirtCleanerSystem.Instance != null ? DirtCleanerSystem.Instance.GetPatiencePenaltyFactor() : 1.0f;
-                currentPatience -= Time.deltaTime * penalty;
+                decayRate = penalty;
             }
-            else
-            {
-                // Sırada beklerken sabır çok daha yavaş düşer (örneğin 0.3x hızda)
-                currentPatience -= Time.deltaTime * 0.3f;
-            }
+
+            currentPatience -= Time.deltaTime * decayRate;
 
             if (currentPatience <= 0f)
             {
@@ -103,73 +171,127 @@ namespace TwoCutGame
             }
         }
 
+        /// <summary>
+        /// Kuaför oyuncu yanına gelip [E] bastığında çağrılır. Müşteriyi uygun koltuğa yönlendirir.
+        /// </summary>
+        public bool GuideToStation(SalonStation station)
+        {
+            if (station == null || station.HasCustomer()) return false;
+            if (state != CustomerState.WaitingInQueue) return false;
+
+            assignedStation = station;
+            assignedStation.SeatCustomer(this);
+
+            state = CustomerState.WalkingToStation;
+            Transform seat = station.itemOrCustomerPoint != null ? station.itemOrCustomerPoint : station.transform;
+            targetPosition = seat.position + Vector3.up * 0.4f;
+
+            if (worldUI != null)
+            {
+                worldUI.ShowDialogue("Hemen geliyorum! 💺", 2.5f);
+            }
+
+            TwoCutAudioManager.Instance?.PlayPop();
+
+            // Sırada arkasındaki müşterileri bir adım öne kaydır
+            if (SalonGameManager.Instance != null)
+            {
+                SalonGameManager.Instance.RemoveCustomerFromQueue(this);
+            }
+
+            Debug.Log($"[TwoCut Customer] {customerName} kuaför tarafından {station.stationType} istasyonuna yönlendirildi!");
+            return true;
+        }
+
+        private void SitDownAtStation()
+        {
+            state = CustomerState.SeatedWaitingForService;
+            currentPatience = Mathf.Min(currentPatience + 10f, maxPatienceTime); // Koltuğa oturunca biraz sabır tazelenir
+
+            if (worldUI != null)
+            {
+                string toolPrompt = GetRequiredToolName();
+                worldUI.ShowDialogue($"Oturduk! Bekliyorum ({toolPrompt})", 3f);
+            }
+
+            Debug.Log($"[TwoCut Customer] {customerName} koltuğa oturdu. Hizmet bekleniyor.");
+        }
+
         public void PerformServiceStep(SalonItem toolUsed, ServiceType stationService)
         {
-            if (isAllServicesDone) return;
+            if (isAllServicesDone || (state != CustomerState.SeatedWaitingForService && state != CustomerState.UndergoingService)) return;
 
-            ServiceType targetService = !isFirstServiceDone ? firstServiceNeeded : secondServiceNeeded;
+            ServiceType activeService = !isFirstServiceDone ? firstServiceNeeded : secondServiceNeeded;
 
-            // 1. Koltuk ile müşterinin istediği hizmet uyuşuyor mu?
-            if (stationService != targetService)
+            // 1. İstasyon türü eşleşiyor mu?
+            if (stationService != activeService)
             {
-                Debug.LogWarning($"[TwoCut Customer] Yanlış koltuktayız! Müşterinin istediği: {targetService}");
+                worldUI?.ShowDialogue($"Yanlış istasyon! {GetServiceName(activeService)} gerekli.", 2f);
                 return;
             }
 
-            // 2. Doğru alet elinizde mi kontrolü
-            if (targetService == ServiceType.Haircut)
+            // 2. Doğru alet elde mi?
+            if (activeService == ServiceType.Haircut)
             {
                 if (toolUsed == null || toolUsed.itemType != ItemType.Scissors)
                 {
-                    Debug.LogWarning("[TwoCut Customer] Saç kesmek için elinizde MAKAS (Scissors) olmalı!");
+                    worldUI?.ShowDialogue("Lütfen MAKAS ile gelin! ✂️", 2f);
                     return;
                 }
             }
-            else if (targetService == ServiceType.HairWash)
+            else if (activeService == ServiceType.HairWash)
             {
                 if (toolUsed == null || toolUsed.itemType != ItemType.ShampooBottle)
                 {
-                    Debug.LogWarning("[TwoCut Customer] Saç yıkamak için elinizde ŞAMPUAN (ShampooBottle) olmalı!");
+                    worldUI?.ShowDialogue("Lütfen ŞAMPUAN getirin! 🧼", 2f);
                     return;
                 }
             }
-            else if (targetService == ServiceType.HairDye)
+            else if (activeService == ServiceType.HairDye)
             {
                 if (toolUsed == null || (toolUsed.itemType != ItemType.DyeBottle_Red && toolUsed.itemType != ItemType.DyeBottle_Blonde))
                 {
-                    Debug.LogWarning("[TwoCut Customer] Boyama yapmak için elinizde BOYA (DyeBottle) olmalı!");
+                    worldUI?.ShowDialogue("Lütfen BOYA getirin! 🎨", 2f);
                     return;
                 }
             }
 
-            // Altın Makas yükseltmesi varsa saç kesim hızını 2 kat yap
-            int progressIncrement = 1;
-            if (targetService == ServiceType.Haircut && TwoCutShopUpgradeManager.Instance != null && TwoCutShopUpgradeManager.Instance.hasGoldenScissors)
+            state = CustomerState.UndergoingService;
+
+            // Ses ve animasyon efekti
+            if (activeService == ServiceType.Haircut)
             {
-                progressIncrement = 2;
+                TwoCutAudioManager.Instance?.PlayScissors();
+            }
+            else
+            {
+                TwoCutAudioManager.Instance?.PlayPop();
             }
 
-            currentActions += progressIncrement;
-            Debug.Log($"[TwoCut Customer] İşlem yapılıyor... ({currentActions}/{requiredActions})");
+            int increment = 1;
+            if (activeService == ServiceType.Haircut && TwoCutShopUpgradeManager.Instance != null && TwoCutShopUpgradeManager.Instance.hasGoldenScissors)
+            {
+                increment = 2;
+            }
 
-            // Visual feedback
+            currentActions += increment;
+
+            // Görsel efekt
             if (customerRenderer != null)
             {
-                if (targetService == ServiceType.HairDye) customerRenderer.material.color = Color.magenta;
-                else if (targetService == ServiceType.Massage) customerRenderer.material.color = Color.cyan;
-                else if (targetService == ServiceType.Haircut) transform.localScale = Vector3.one * 0.9f;
+                if (activeService == ServiceType.HairDye) customerRenderer.material.color = Color.magenta;
+                else if (activeService == ServiceType.Haircut) transform.localScale = new Vector3(0.95f, 0.95f, 0.95f);
             }
 
             if (currentActions >= requiredActions)
             {
                 currentActions = 0;
-
                 if (!isFirstServiceDone)
                 {
                     isFirstServiceDone = true;
 
-                    // Spawn hair clipping mess on floor for Haircut/Dye
-                    if (targetService == ServiceType.Haircut || targetService == ServiceType.HairDye)
+                    // Yere saç döküntüsü oluştur
+                    if (activeService == ServiceType.Haircut || activeService == ServiceType.HairDye)
                     {
                         DirtCleanerSystem.Instance?.SpawnHairClippingDirt(transform.position);
                     }
@@ -180,7 +302,8 @@ namespace TwoCutGame
                     }
                     else
                     {
-                        Debug.Log($"[TwoCut Customer] 1. Hizmet bitti! Şimdi 2. Hizmet: {secondServiceNeeded}");
+                        worldUI?.ShowDialogue($"1. İşlem bitti! Şimdi {GetServiceName(secondServiceNeeded)} lütfen.", 3f);
+                        state = CustomerState.SeatedWaitingForService;
                     }
                 }
                 else
@@ -193,37 +316,119 @@ namespace TwoCutGame
         private void CompleteAllServices()
         {
             isAllServicesDone = true;
+            state = CustomerState.ServiceCompletedLeaving;
+
+            if (assignedStation != null)
+            {
+                assignedStation.ClearCustomer();
+                assignedStation = null;
+            }
 
             int totalPay = paymentAmount;
             if (needsSecondService) totalPay += 45;
 
-            // Add tip if patience > 50%
-            if (currentPatience > maxPatienceTime * 0.5f)
+            bool gotTip = currentPatience > maxPatienceTime * 0.45f;
+            if (gotTip)
             {
                 totalPay += tipBonus;
-                Debug.Log($"⭐ [TwoCut Customer] Harika hizmet! Bahşişli Ödeme: ${totalPay}");
+                worldUI?.ShowDialogue($"Harika oldu! Teşekkürler! (+${totalPay} 💵)", 3f);
+                TwoCutAudioManager.Instance?.PlayCheer();
             }
             else
             {
-                Debug.Log($"✅ [TwoCut Customer] Hizmet tamamlandı: ${totalPay}");
+                worldUI?.ShowDialogue($"Fena değil. (+${totalPay} 💵)", 3f);
             }
 
+            TwoCutAudioManager.Instance?.PlayCash();
             TwoCutEconomyManager.Instance?.AddEarnings(totalPay);
-            Destroy(gameObject, 1.2f);
+
+            // Çıkış kapısına doğru yürü
+            if (SalonGameManager.Instance != null)
+            {
+                targetPosition = SalonGameManager.Instance.doorSpawnPoint;
+            }
+            else
+            {
+                targetPosition = transform.position + Vector3.back * 10f;
+            }
         }
 
         private void LeaveAngry()
         {
-            Debug.LogWarning($"😡 [TwoCut Customer] {customerName} sabrı tükendi ve sinirle dükkanı terk etti!");
-            
-            // Eğer sıradayken sabrı bittiyse sıradan çıkar ve arkadaki sırayı kaydır
-            if (SalonGameManager.Instance != null && SalonGameManager.Instance.waitingQueue.Contains(this))
+            state = CustomerState.AngryLeaving;
+            worldUI?.ShowDialogue("Çok bekledim, gidiyorum! 😡", 3f);
+
+            if (assignedStation != null)
             {
-                SalonGameManager.Instance.waitingQueue.Remove(this);
-                SalonGameManager.Instance.UpdateQueuePositions();
+                assignedStation.ClearCustomer();
+                assignedStation = null;
             }
 
-            Destroy(gameObject);
+            if (SalonGameManager.Instance != null && SalonGameManager.Instance.waitingQueue.Contains(this))
+            {
+                SalonGameManager.Instance.RemoveCustomerFromQueue(this);
+            }
+
+            if (SalonGameManager.Instance != null)
+            {
+                targetPosition = SalonGameManager.Instance.doorSpawnPoint;
+            }
+            else
+            {
+                targetPosition = transform.position + Vector3.back * 10f;
+            }
+        }
+
+        public string GetServiceEmoji()
+        {
+            ServiceType active = !isFirstServiceDone ? firstServiceNeeded : secondServiceNeeded;
+            switch (active)
+            {
+                case ServiceType.Haircut: return "✂️";
+                case ServiceType.HairWash: return "🧼";
+                case ServiceType.HairDye: return "🎨";
+                case ServiceType.Massage: return "💆";
+                default: return "✂️";
+            }
+        }
+
+        public string GetServiceName(ServiceType s)
+        {
+            switch (s)
+            {
+                case ServiceType.Haircut: return "Saç Kesimi";
+                case ServiceType.HairWash: return "Saç Yıkama";
+                case ServiceType.HairDye: return "Saç Boyama";
+                case ServiceType.Massage: return "Masaj";
+                default: return "Hizmet";
+            }
+        }
+
+        public string GetRequiredToolName()
+        {
+            ServiceType active = !isFirstServiceDone ? firstServiceNeeded : secondServiceNeeded;
+            switch (active)
+            {
+                case ServiceType.Haircut: return "Makas";
+                case ServiceType.HairWash: return "Şampuan";
+                case ServiceType.HairDye: return "Boya";
+                case ServiceType.Massage: return "Masaj";
+                default: return "Alet";
+            }
+        }
+
+        public string GetStatusDescription()
+        {
+            switch (state)
+            {
+                case CustomerState.WaitingInQueue: return "Sırada Bekliyor";
+                case CustomerState.WalkingToStation: return "Koltuğa Gidiyor...";
+                case CustomerState.SeatedWaitingForService: return $"{GetRequiredToolName()} Bekliyor";
+                case CustomerState.UndergoingService: return "İşlem Yapılıyor...";
+                case CustomerState.ServiceCompletedLeaving: return "Tamamlandı!";
+                case CustomerState.AngryLeaving: return "Ayrıldı";
+                default: return "";
+            }
         }
     }
 }

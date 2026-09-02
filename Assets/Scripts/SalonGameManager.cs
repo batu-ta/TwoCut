@@ -1,32 +1,37 @@
+using System.Collections.Generic;
 using UnityEngine;
 using TwoCutGame;
 
 namespace HairSalonGame
 {
     /// <summary>
-    /// Game Manager for Hair Salon game.
-    /// Controls shift timer, salon money earned, customer spawn interval, and score UI.
+    /// Salon Game Manager for TwoCut.
+    /// Manages customer arrivals, queue organization at the entrance,
+    /// and station availability tracking.
     /// </summary>
     public class SalonGameManager : MonoBehaviour
     {
         public static SalonGameManager Instance { get; private set; }
 
-        [Header("Salon Shift Settings")]
-        public float shiftDuration = 180f;
-        public float timeRemaining;
-
         [Header("Customer Spawner")]
         public GameObject customerPrefab;
-        public SalonStation[] availableChairs;
-        public float spawnInterval = 10f;
+        public SalonStation[] availableStations;
+        public float spawnInterval = 8f;
+        public int maxQueueCapacity = 5;
         private float spawnTimer;
 
-        [Header("Customer Queue Setup")]
-        public Vector3 entrancePos = new Vector3(0f, 0.5f, -8f); // Dükkan kapısı önü
-        public Vector3 queueOffset = new Vector3(0f, 0f, -1.8f); // Sıradaki mesafe (güneye doğru uzanır)
-        
-        [System.NonSerialized]
-        public System.Collections.Generic.List<TwoCutCustomer> waitingQueue = new System.Collections.Generic.List<TwoCutCustomer>();
+        [Header("Customer Queue Line Setup")]
+        [Tooltip("Dükkanın kapı giriş noktası (Müşterilerin doğduğu yer)")]
+        public Vector3 doorSpawnPoint = new Vector3(-13.5f, 0.2f, -1.0f);
+
+        [Tooltip("Sıranın en başı (Açık alanda 1. müşterinin duracağı yer)")]
+        public Vector3 queueStartPos = new Vector3(-5.5f, 0.2f, -1.0f);
+
+        [Tooltip("Sırada arkaya doğru tek sıra dizilme mesafesi")]
+        public Vector3 queueOffset = new Vector3(-1.8f, 0f, 0f);
+
+        [Header("Active Queue")]
+        public List<TwoCutCustomer> waitingQueue = new List<TwoCutCustomer>();
 
         private void Awake()
         {
@@ -36,18 +41,35 @@ namespace HairSalonGame
 
         private void Start()
         {
-            timeRemaining = shiftDuration;
-            spawnTimer = 2f; // Spawn first customer quickly
+            spawnTimer = 0.5f; // İlk müşteriyi hemen kapıdan içeri sok
+            FindAllStationsInScene();
+
+            // Ensure UI is active
+            if (FindFirstObjectByType<TwoCutGameUI>() == null)
+            {
+                gameObject.AddComponent<TwoCutGameUI>();
+            }
+
+            // Ensure AudioManager is active
+            _ = TwoCutAudioManager.Instance;
+        }
+
+        public void FindAllStationsInScene()
+        {
+            if (availableStations == null || availableStations.Length == 0)
+            {
+                availableStations = FindObjectsByType<SalonStation>(FindObjectsSortMode.None);
+            }
         }
 
         private void Update()
         {
-            if (timeRemaining > 0)
+            if (TwoCutEconomyManager.Instance != null && (TwoCutEconomyManager.Instance.isShiftEnded || TwoCutEconomyManager.Instance.isBankrupt))
             {
-                timeRemaining -= Time.deltaTime;
-                HandleCustomerSpawning();
-                HandleQueueSeating();
+                return;
             }
+
+            HandleCustomerSpawning();
         }
 
         private void HandleCustomerSpawning()
@@ -56,82 +78,111 @@ namespace HairSalonGame
             if (spawnTimer <= 0f)
             {
                 spawnTimer = spawnInterval;
-                TrySpawnCustomer();
+                if (waitingQueue.Count < maxQueueCapacity)
+                {
+                    TrySpawnCustomer();
+                }
             }
         }
 
-        private void TrySpawnCustomer()
+        public void TrySpawnCustomer()
         {
-            if (customerPrefab == null) return;
+            if (customerPrefab == null)
+            {
+                customerPrefab = Resources.Load<GameObject>("Prefabs/Müşteri");
+                if (customerPrefab == null)
+                {
+                    Debug.LogWarning("[SalonGameManager] customerPrefab atanmamış!");
+                    return;
+                }
+            }
 
-            // Kapı önünde müşteriyi oluştur
-            Vector3 spawnPosition = entrancePos + queueOffset * waitingQueue.Count;
-            GameObject newCustomerObj = Instantiate(customerPrefab, spawnPosition, Quaternion.identity);
-            
+            // Müşteri tam kapıda (doorSpawnPoint) doğar
+            GameObject newCustomerObj = Instantiate(customerPrefab, doorSpawnPoint, Quaternion.identity);
+
             TwoCutCustomer newCustomer = newCustomerObj.GetComponent<TwoCutCustomer>();
-            if (newCustomer != null)
+            if (newCustomer == null)
             {
-                // Rastgele hizmet ata
-                System.Array services = System.Enum.GetValues(typeof(ServiceType));
-                newCustomer.firstServiceNeeded = (ServiceType)services.GetValue(Random.Range(0, services.Length));
-                
-                // Masaj hizmetini %40 ihtimalle ikinci hizmet olarak ata
-                if (Random.value > 0.6f && newCustomer.firstServiceNeeded != ServiceType.Massage)
-                {
-                    newCustomer.needsSecondService = true;
-                    newCustomer.secondServiceNeeded = ServiceType.Massage;
-                }
-
-                // Hedef sıradaki yerini ata
-                newCustomer.targetPosition = spawnPosition;
-                newCustomer.isSeated = false;
-
-                // Sıraya ekle
-                waitingQueue.Add(newCustomer);
-                Debug.Log($"[SalonGameManager] Yeni müşteri geldi! Sıra Boyutu: {waitingQueue.Count}");
+                newCustomer = newCustomerObj.AddComponent<TwoCutCustomer>();
             }
+
+            if (newCustomerObj.GetComponent<CustomerWorldUI>() == null)
+            {
+                newCustomerObj.AddComponent<CustomerWorldUI>();
+            }
+
+            // Rastgele hizmet ata
+            System.Array services = System.Enum.GetValues(typeof(ServiceType));
+            newCustomer.firstServiceNeeded = (ServiceType)services.GetValue(Random.Range(0, services.Length));
+
+            // %35 ihtimalle 2. bir ek hizmet ata (Örn: Masaj)
+            if (Random.value > 0.65f && newCustomer.firstServiceNeeded != ServiceType.Massage)
+            {
+                newCustomer.needsSecondService = true;
+                newCustomer.secondServiceNeeded = ServiceType.Massage;
+            }
+
+            newCustomer.state = CustomerState.WaitingInQueue;
+            // Sırada kendi yerine doğru tek sıra halinde yürür
+            newCustomer.targetPosition = queueStartPos + queueOffset * waitingQueue.Count;
+
+            waitingQueue.Add(newCustomer);
+            Debug.Log($"[SalonGameManager] Yeni müşteri kapıdan girdi ve sıraya yürüyor: {newCustomer.customerName} | Sırada: {waitingQueue.Count}. kişi");
         }
 
-        private void HandleQueueSeating()
+        /// <summary>
+        /// Müşterinin istediği hizmete uygun boş bir istasyon arar.
+        /// </summary>
+        public SalonStation FindAvailableStation(ServiceType service)
         {
-            if (waitingQueue.Count == 0 || availableChairs == null || availableChairs.Length == 0) return;
+            FindAllStationsInScene();
+            if (availableStations == null) return null;
 
-            // Boş koltuk ara
-            foreach (var chair in availableChairs)
+            StationType requiredStationType = StationType.HaircutChair;
+            if (service == ServiceType.HairWash) requiredStationType = StationType.HairWashSink;
+            else if (service == ServiceType.HairDye) requiredStationType = StationType.HairDyeStation;
+            else if (service == ServiceType.Massage) requiredStationType = StationType.MassageChair;
+
+            foreach (var station in availableStations)
             {
-                if (chair != null && !chair.HasCustomer())
+                if (station != null && station.stationType == requiredStationType && station.IsAvailable())
                 {
-                    // Sıranın en önündeki müşteriyi al
-                    TwoCutCustomer customerToSeat = waitingQueue[0];
-                    if (customerToSeat == null)
-                    {
-                        waitingQueue.RemoveAt(0);
-                        continue;
-                    }
-
-                    waitingQueue.RemoveAt(0);
-
-                    // Koltuğa oturt (Ebeveyn ataması yapılır)
-                    chair.SeatCustomer(customerToSeat);
-
-                    // Koltuktaki yerel hedef pozisyonunu ata
-                    customerToSeat.targetPosition = new Vector3(0f, 0.6f, 0f);
-                    customerToSeat.isSeated = true;
-
-                    // Geri kalan müşterileri sırada bir adım öne kaydır
-                    UpdateQueuePositions();
-                    break;
+                    return station;
                 }
+            }
+
+            // Eğer özel boya istasyonu yoksa saç kesim koltuğu da kabul edilebilir
+            if (service == ServiceType.HairDye)
+            {
+                foreach (var station in availableStations)
+                {
+                    if (station != null && station.stationType == StationType.HaircutChair && station.IsAvailable())
+                    {
+                        return station;
+                    }
+                }
+            }
+
+            return null;
+        }
+
+        public void RemoveCustomerFromQueue(TwoCutCustomer customer)
+        {
+            if (waitingQueue.Contains(customer))
+            {
+                waitingQueue.Remove(customer);
+                UpdateQueuePositions();
             }
         }
 
         public void UpdateQueuePositions()
         {
+            // Sırada kalan tüm müşterileri bir adım öne doğru tek sıra halinde kaydır
             for (int i = 0; i < waitingQueue.Count; i++)
             {
-                if (waitingQueue[i] != null)
+                if (waitingQueue[i] != null && waitingQueue[i].state == CustomerState.WaitingInQueue)
                 {
-                    waitingQueue[i].targetPosition = entrancePos + queueOffset * i;
+                    waitingQueue[i].targetPosition = queueStartPos + queueOffset * i;
                 }
             }
         }

@@ -9,7 +9,24 @@ namespace TwoCutGame
     /// </summary>
     public class DirtCleanerSystem : MonoBehaviour
     {
-        public static DirtCleanerSystem Instance { get; private set; }
+        private static DirtCleanerSystem _instance;
+        public static DirtCleanerSystem Instance
+        {
+            get
+            {
+                if (_instance == null)
+                {
+                    _instance = FindFirstObjectByType<DirtCleanerSystem>();
+                    if (_instance == null)
+                    {
+                        GameObject obj = new GameObject("DirtCleanerSystem");
+                        _instance = obj.AddComponent<DirtCleanerSystem>();
+                    }
+                }
+                return _instance;
+            }
+            private set => _instance = value;
+        }
 
         [Header("Cleanliness Settings")]
         [Tooltip("Overall shop cleanliness percentage (0% = Filthy, 100% = Sparkling clean).")]
@@ -22,8 +39,14 @@ namespace TwoCutGame
 
         private void Awake()
         {
-            if (Instance == null) Instance = this;
-            else Destroy(gameObject);
+            if (_instance == null)
+            {
+                _instance = this;
+            }
+            else if (_instance != this)
+            {
+                Destroy(gameObject);
+            }
         }
 
         public void SpawnHairClippingDirt(Vector3 position)
@@ -37,7 +60,7 @@ namespace TwoCutGame
                 Instantiate(hairClippingPrefab, spawnPos, Quaternion.identity);
             }
 
-            Debug.Log($"[Cleanliness] Saç döküntüsü birikti! Temizlik Oranı: %{cleanlinessPercent:F0}");
+            Debug.Log($"[TwoCut Cleanliness] Saç döküntüsü birikti! Temizlik Oranı: %{cleanlinessPercent:F0}");
         }
 
         public void SweepCleanDirt(GameObject dirtObject)
@@ -49,7 +72,7 @@ namespace TwoCutGame
 
             // Restore cleanliness by 10% per sweep
             cleanlinessPercent = Mathf.Clamp(cleanlinessPercent + 10f, 0f, 100f);
-            Debug.Log($"[Cleanliness] Süpürüldü! Temizlik Oranı: %{cleanlinessPercent:F0}");
+            Debug.Log($"[TwoCut Cleanliness] Süpürüldü! Temizlik Oranı: %{cleanlinessPercent:F0}");
         }
 
         public float GetPatiencePenaltyFactor()

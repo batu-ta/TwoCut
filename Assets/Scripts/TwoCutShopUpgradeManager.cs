@@ -57,11 +57,11 @@ namespace TwoCutGame
                 {
                     case UpgradeType.GoldenScissors:
                         hasGoldenScissors = true;
-                        Debug.Log("✨ [Upgrade] Altın Makas satın alındı! Kesim hızı 2 katına çıktı!");
+                        Debug.Log("✂️ [Upgrade] Altın Makas satın alındı! Kesim hızı 2 katına çıktı!");
                         break;
                     case UpgradeType.MassageChair:
                         hasMassageChair = true;
-                        Debug.Log("🛋️ [Upgrade] Masaj Koltuğu kuruldu! Masaj hizmeti aktif!");
+                        Debug.Log("💆 [Upgrade] Masaj Koltuğu kuruldu! Masaj hizmeti aktif!");
                         break;
                     case UpgradeType.FloorCleaningBot:
                         hasFloorCleaningBot = true;
@@ -69,9 +69,10 @@ namespace TwoCutGame
                         break;
                     case UpgradeType.AssistantHelper:
                         hasAssistantHelper = true;
-                        Debug.Log("👨‍🍳 [Upgrade] Yardımcı Çırak işe alındı!");
+                        Debug.Log("🧑‍🍳 [Upgrade] Yardımcı Çırak işe alındı!");
                         break;
                 }
+                TwoCutAudioManager.Instance?.PlayCheer();
                 return true;
             }
 

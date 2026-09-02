@@ -21,7 +21,7 @@ namespace TwoCutGame
         public int dailyInstallmentTarget = 250;
 
         [Header("Daily Revenue & Cash")]
-        public int currentVaultMoney = 100; // Starting capital
+        public int currentVaultMoney = 120; // Starting capital
         public int todayEarnings = 0;
 
         [Header("Shift Timer")]
@@ -42,7 +42,7 @@ namespace TwoCutGame
         private void Start()
         {
             timeRemaining = shiftDurationSeconds;
-            Debug.Log($"[TwoCut] Gün {currentDay} başladı! Bugunku Taksit Hedefi: ${dailyInstallmentTarget} | Kalan Toplam Borç: ${totalLoanDebt}");
+            Debug.Log($"[TwoCut Economy] Gün {currentDay} başladı! Bugünkü Taksit: ${dailyInstallmentTarget} | Kalan Toplam Borç: ${totalLoanDebt}");
         }
 
         private void Update()
@@ -63,7 +63,7 @@ namespace TwoCutGame
         {
             todayEarnings += amount;
             currentVaultMoney += amount;
-            Debug.Log($"[TwoCut] Gelir: +${amount} | Bugunku Toplam: ${todayEarnings} | Kasa: ${currentVaultMoney}");
+            Debug.Log($"[TwoCut Economy] Gelir: +${amount} | Bugünkü Toplam: ${todayEarnings} | Kasa: ${currentVaultMoney}");
         }
 
         public void EndDayShift()
@@ -93,7 +93,7 @@ namespace TwoCutGame
                 if (totalLoanDebt >= 8000) // Bankruptcy threshold
                 {
                     isBankrupt = true;
-                    Debug.LogError("❌ İFLAS EDİLDİ! Borçlar ödenemedi. Oyun Bitti!");
+                    Debug.LogError("💥 İFLAS EDİLDİ! Borçlar ödenemedi. Oyun Bitti!");
                 }
             }
         }
@@ -106,7 +106,7 @@ namespace TwoCutGame
             timeRemaining = shiftDurationSeconds;
             isShiftEnded = false;
 
-            Debug.Log($"[TwoCut] Gün {currentDay} Başladı! Yeni Taksit: ${dailyInstallmentTarget}");
+            Debug.Log($"[TwoCut Economy] Gün {currentDay} Başladı! Yeni Taksit: ${dailyInstallmentTarget}");
         }
     }
 }
