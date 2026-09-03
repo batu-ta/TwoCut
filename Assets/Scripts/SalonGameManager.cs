@@ -21,28 +21,36 @@ namespace HairSalonGame
         private float spawnTimer;
 
         [Header("Customer Queue Line Setup")]
-        [Tooltip("Dükkanın kapı giriş noktası (Müşterilerin doğduğu yer)")]
-        public Vector3 doorSpawnPoint = new Vector3(-13.5f, 0.2f, -1.0f);
+        [Tooltip("Sahnede sürükleyip bırakabileceğiniz Doğma Noktası (Boşsa doorSpawnPoint kullanılır)")]
+        public Transform doorSpawnTransform;
+        [Tooltip("Dükkanın kapı giriş noktası (Müşterilerin doğduğu koordinat)")]
+        public Vector3 doorSpawnPoint = new(-13.5f, 0.2f, -1.0f);
 
-        [Tooltip("Sıranın en başı (Açık alanda 1. müşterinin duracağı yer)")]
-        public Vector3 queueStartPos = new Vector3(-5.5f, 0.2f, -1.0f);
+        [Tooltip("Sahnede elle taşıyabileceğiniz Sıra Noktaları (Örn: Sira1, Sira2, Sira3). Boş bırakılırsa queueStartPos kullanılır.")]
+        public Transform[] queuePointTransforms;
+
+        [Tooltip("Sıranın en başı (1. müşterinin duracağı koordinat)")]
+        public Vector3 queueStartPos = new(-5.5f, 0.2f, -1.0f);
 
         [Tooltip("Sırada arkaya doğru tek sıra dizilme mesafesi")]
-        public Vector3 queueOffset = new Vector3(-1.8f, 0f, 0f);
+        public Vector3 queueOffset = new(-1.8f, 0f, 0f);
 
         [Header("Active Queue")]
-        public List<TwoCutCustomer> waitingQueue = new List<TwoCutCustomer>();
+        public List<TwoCutCustomer> waitingQueue = new();
 
         private void Awake()
         {
             if (Instance == null) Instance = this;
             else Destroy(gameObject);
+
+            AutoDetectLocationTransforms();
         }
 
         private void Start()
         {
             spawnTimer = 0.5f; // İlk müşteriyi hemen kapıdan içeri sok
             FindAllStationsInScene();
+            AutoDetectLocationTransforms();
 
             // Ensure UI is active
             if (FindFirstObjectByType<TwoCutGameUI>() == null)
@@ -52,6 +60,57 @@ namespace HairSalonGame
 
             // Ensure AudioManager is active
             _ = TwoCutAudioManager.Instance;
+        }
+
+        public void AutoDetectLocationTransforms()
+        {
+            // Sahnede 'Location' veya 'SpawnPoint' objeleri varsa otomatik olarak bağla
+            if (doorSpawnTransform == null)
+            {
+                GameObject spawnObj = GameObject.Find("SpawnPoint");
+                if (spawnObj != null) doorSpawnTransform = spawnObj.transform;
+            }
+
+            if (queuePointTransforms == null || queuePointTransforms.Length == 0)
+            {
+                List<Transform> points = new();
+                for (int i = 1; i <= 10; i++)
+                {
+                    GameObject siraObj = GameObject.Find($"Sira{i}");
+                    if (siraObj != null)
+                    {
+                        points.Add(siraObj.transform);
+                    }
+                }
+                if (points.Count > 0)
+                {
+                    queuePointTransforms = points.ToArray();
+                }
+            }
+        }
+
+        public Vector3 GetSpawnPosition()
+        {
+            if (doorSpawnTransform != null) return doorSpawnTransform.position;
+            return doorSpawnPoint;
+        }
+
+        public Vector3 GetQueuePosition(int queueIndex)
+        {
+            if (queuePointTransforms != null && queuePointTransforms.Length > 0)
+            {
+                if (queueIndex < queuePointTransforms.Length && queuePointTransforms[queueIndex] != null)
+                {
+                    return queuePointTransforms[queueIndex].position;
+                }
+                else if (queuePointTransforms.Length > 0 && queuePointTransforms[^1] != null)
+                {
+                    // Sıra tanımlı nokta sayısından uzunsa son noktadan itibaren geriye doğru diz
+                    Transform last = queuePointTransforms[^1];
+                    return last.position + queueOffset * (queueIndex - queuePointTransforms.Length + 1);
+                }
+            }
+            return queueStartPos + queueOffset * queueIndex;
         }
 
         public void FindAllStationsInScene()
@@ -97,14 +156,12 @@ namespace HairSalonGame
                 }
             }
 
-            // Müşteri tam kapıda (doorSpawnPoint) doğar
-            GameObject newCustomerObj = Instantiate(customerPrefab, doorSpawnPoint, Quaternion.identity);
+            // Müşteri belirlenen doğma noktasında (doorSpawnTransform veya doorSpawnPoint) doğar
+            Vector3 spawnPos = GetSpawnPosition();
+            GameObject newCustomerObj = Instantiate(customerPrefab, spawnPos, Quaternion.identity);
 
             TwoCutCustomer newCustomer = newCustomerObj.GetComponent<TwoCutCustomer>();
-            if (newCustomer == null)
-            {
-                newCustomer = newCustomerObj.AddComponent<TwoCutCustomer>();
-            }
+            newCustomer ??= newCustomerObj.AddComponent<TwoCutCustomer>();
 
             if (newCustomerObj.GetComponent<CustomerWorldUI>() == null)
             {
@@ -124,7 +181,7 @@ namespace HairSalonGame
 
             newCustomer.state = CustomerState.WaitingInQueue;
             // Sırada kendi yerine doğru tek sıra halinde yürür
-            newCustomer.targetPosition = queueStartPos + queueOffset * waitingQueue.Count;
+            newCustomer.targetPosition = GetQueuePosition(waitingQueue.Count);
 
             waitingQueue.Add(newCustomer);
             Debug.Log($"[SalonGameManager] Yeni müşteri kapıdan girdi ve sıraya yürüyor: {newCustomer.customerName} | Sırada: {waitingQueue.Count}. kişi");
@@ -182,7 +239,31 @@ namespace HairSalonGame
             {
                 if (waitingQueue[i] != null && waitingQueue[i].state == CustomerState.WaitingInQueue)
                 {
-                    waitingQueue[i].targetPosition = queueStartPos + queueOffset * i;
+                    waitingQueue[i].targetPosition = GetQueuePosition(i);
+                }
+            }
+        }
+
+        private void OnDrawGizmos()
+        {
+            // Sahnede görsel rehber çizgileri ve küreler çiz (Scene görünümünde kolay hizalama için)
+            Vector3 spawnPos = GetSpawnPosition();
+            Gizmos.color = Color.cyan;
+            Gizmos.DrawWireSphere(spawnPos, 0.4f);
+            Gizmos.DrawLine(spawnPos, spawnPos + Vector3.up * 1.5f);
+
+            Vector3 firstQueuePos = GetQueuePosition(0);
+            Gizmos.color = Color.yellow;
+            Gizmos.DrawLine(spawnPos, firstQueuePos);
+
+            for (int i = 0; i < 5; i++)
+            {
+                Vector3 qPos = GetQueuePosition(i);
+                Gizmos.color = i == 0 ? Color.green : Color.yellow;
+                Gizmos.DrawWireSphere(qPos, 0.35f);
+                if (i < 4)
+                {
+                    Gizmos.DrawLine(qPos, GetQueuePosition(i + 1));
                 }
             }
         }

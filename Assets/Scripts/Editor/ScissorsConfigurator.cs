@@ -119,7 +119,6 @@ namespace TwoCutGame.EditorTools
 
             if (ConfigureSalonBuildingColliders()) dirty = true;
             if (ConfigureScissorsInScene(stableMaterial)) dirty = true;
-            if (ConfigureTablesInScene(stableMaterial)) dirty = true;
             if (ConfigureStationsInScene()) dirty = true;
             if (ConfigureGameManagerInScene()) dirty = true;
 
@@ -153,6 +152,20 @@ namespace TwoCutGame.EditorTools
                         if (mr != null && !obName.StartsWith("Boundary"))
                         {
                             mr.enabled = false;
+                            dirty = true;
+                        }
+                    }
+                }
+
+                // Masa / Table objelerindeki tüm collider'ları kaldır (Karakterin masaya rahatça yanaşabilmesi için)
+                string nameLower = obj.name.ToLower();
+                if (nameLower.Contains("masa") || nameLower == "table")
+                {
+                    foreach (Collider c in obj.GetComponents<Collider>())
+                    {
+                        if (c != null)
+                        {
+                            Object.DestroyImmediate(c);
                             dirty = true;
                         }
                     }
@@ -253,37 +266,6 @@ namespace TwoCutGame.EditorTools
                     rb.mass = 0.4f;
 
                     any = true;
-                }
-            }
-            return any;
-        }
-
-        private static bool ConfigureTablesInScene(PhysicsMaterial mat)
-        {
-            bool any = false;
-            GameObject[] allObjects = Object.FindObjectsByType<GameObject>(FindObjectsInactive.Include, FindObjectsSortMode.None);
-
-            foreach (GameObject obj in allObjects)
-            {
-                if (obj == null) continue;
-                string nameLower = obj.name.ToLower();
-
-                if (nameLower.Contains("masa") || nameLower.Contains("table") || nameLower.Contains("desk") || nameLower.Contains("counter"))
-                {
-                    if (obj.GetComponent<Camera>() != null || obj.GetComponent<Light>() != null) continue;
-
-                    Collider col = obj.GetComponent<Collider>();
-                    if (col == null)
-                    {
-                        BoxCollider boxCol = obj.AddComponent<BoxCollider>();
-                        AutoSizeColliderToChildren(obj, boxCol);
-                        boxCol.material = mat;
-                        any = true;
-                    }
-                    else
-                    {
-                        col.material = mat;
-                    }
                 }
             }
             return any;
