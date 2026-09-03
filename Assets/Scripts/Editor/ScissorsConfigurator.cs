@@ -45,17 +45,12 @@ namespace TwoCutGame.EditorTools
             if (EditorApplication.isPlayingOrWillChangePlaymode || EditorApplication.isPlaying) return;
 
             var activeScene = EditorSceneManager.GetActiveScene();
-            bool dirty = false;
-
-            // Physics Material
-            PhysicsMaterial stableMat = GetOrCreatePhysicsMaterial();
 
             // Find or Create Salon Hierarchy
             GameObject salonRoot = GameObject.Find("=== TWO CUT SALON ===");
             if (salonRoot == null)
             {
                 salonRoot = new GameObject("=== TWO CUT SALON ===");
-                dirty = true;
             }
 
             // 1. Setup Solid Boundary Perimeter Walls & Floor (Prevents falling into void/walls)
@@ -82,9 +77,7 @@ namespace TwoCutGame.EditorTools
                 }
             }
 
-            dirty = true;
-
-            if (dirty && !EditorApplication.isPlayingOrWillChangePlaymode && !EditorApplication.isPlaying)
+            if (!EditorApplication.isPlayingOrWillChangePlaymode && !EditorApplication.isPlaying)
             {
                 EditorSceneManager.MarkSceneDirty(activeScene);
             }
@@ -109,7 +102,7 @@ namespace TwoCutGame.EditorTools
             boundObj.transform.localScale = Vector3.one;
 
             BoxCollider col = boundObj.GetComponent<BoxCollider>();
-            if (col == null) col = boundObj.AddComponent<BoxCollider>();
+            col ??= boundObj.AddComponent<BoxCollider>();
             col.isTrigger = false;
             col.size = size;
             col.center = Vector3.zero;
@@ -187,10 +180,7 @@ namespace TwoCutGame.EditorTools
                         if (mf.sharedMesh != null)
                         {
                             MeshCollider mc = mf.GetComponent<MeshCollider>();
-                            if (mc == null)
-                            {
-                                mc = mf.gameObject.AddComponent<MeshCollider>();
-                            }
+                            mc ??= mf.gameObject.AddComponent<MeshCollider>();
                             mc.sharedMesh = mf.sharedMesh;
                             mc.convex = false;
                             dirty = true;
@@ -208,12 +198,14 @@ namespace TwoCutGame.EditorTools
             PhysicsMaterial mat = AssetDatabase.LoadAssetAtPath<PhysicsMaterial>(matPath);
             if (mat == null)
             {
-                mat = new PhysicsMaterial("TableToolFriction");
-                mat.dynamicFriction = 0.8f;
-                mat.staticFriction = 0.9f;
-                mat.bounciness = 0.0f;
-                mat.frictionCombine = PhysicsMaterialCombine.Maximum;
-                mat.bounceCombine = PhysicsMaterialCombine.Minimum;
+                mat = new PhysicsMaterial("TableToolFriction")
+                {
+                    dynamicFriction = 0.8f,
+                    staticFriction = 0.9f,
+                    bounciness = 0.0f,
+                    frictionCombine = PhysicsMaterialCombine.Maximum,
+                    bounceCombine = PhysicsMaterialCombine.Minimum
+                };
 
                 if (!AssetDatabase.IsValidFolder("Assets/Materials"))
                 {
@@ -243,17 +235,17 @@ namespace TwoCutGame.EditorTools
                     CleanChildPhysicsComponents(obj);
 
                     SalonItem item = obj.GetComponent<SalonItem>();
-                    if (item == null) item = obj.AddComponent<SalonItem>();
+                    item ??= obj.AddComponent<SalonItem>();
                     item.itemName = "Mavi Makas";
                     item.itemType = ItemType.Scissors;
 
                     BoxCollider boxCol = obj.GetComponent<BoxCollider>();
-                    if (boxCol == null) boxCol = obj.AddComponent<BoxCollider>();
+                    boxCol ??= obj.AddComponent<BoxCollider>();
                     boxCol.material = mat;
                     AutoSizeColliderToChildren(obj, boxCol);
 
                     Rigidbody rb = obj.GetComponent<Rigidbody>();
-                    if (rb == null) rb = obj.AddComponent<Rigidbody>();
+                    rb ??= obj.AddComponent<Rigidbody>();
                     rb.interpolation = RigidbodyInterpolation.Interpolate;
                     rb.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
                     rb.useGravity = true;

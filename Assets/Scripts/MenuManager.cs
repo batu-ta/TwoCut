@@ -1,19 +1,19 @@
-using UnityEngine;
-using UnityEngine.SceneManagement; // Sahneler arası geçiş için bunu eklememiz şart
-
-public class MenuManager : MonoBehaviour
-{
-    // Oyna butonuna basınca çalışacak
-    public void PlayGame()
-    {
-        // 1 numaralı sahneyi (oyunun olduğu sahne) yükle
-        SceneManager.LoadScene(1);
-    }
-
-    // Çıkış butonuna basınca çalışacak
-    public void QuitGame()
-    {
-        Debug.Log("Oyundan çıkıldı!"); // Editörde çıkışı görebilmek için
-        Application.Quit(); // Gerçek oyunda oyunu kapatır
-    }
+using UnityEngine;
+using UnityEngine.SceneManagement; // Sahneler arasÄ± geÃ§iÅŸ iÃ§in bunu eklememiz ÅŸart
+
+public class MenuManager : MonoBehaviour
+{
+    // Oyna butonuna basÄ±nca Ã§alÄ±ÅŸacak
+    public void PlayGame()
+    {
+        // 1 numaralÄ± sahneyi (oyunun olduÄŸu sahne) yÃ¼kle
+        SceneManager.LoadScene(1);
+    }
+
+    // Ã‡Ä±kÄ±ÅŸ butonuna basÄ±nca Ã§alÄ±ÅŸacak
+    public void QuitGame()
+    {
+        Debug.Log("Oyundan Ã§Ä±kÄ±ldÄ±!"); // EditÃ¶rde Ã§Ä±kÄ±ÅŸÄ± gÃ¶rebilmek iÃ§in
+        Application.Quit(); // GerÃ§ek oyunda oyunu kapatÄ±r
+    }
 }

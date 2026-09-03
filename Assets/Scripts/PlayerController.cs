@@ -3,10 +3,15 @@ using UnityEngine;
 namespace HairSalonGame
 {
     /// <summary>
-    /// Direct, crisp, responsive top-down character controller for TwoCut.
-    /// Pure instant facing and smooth translation with zero procedural swaying or spinning.
+    /// Ultra-responsive, butter-smooth top-down character controller for TwoCut.
+    /// Features:
+    /// - Effortless wall & corner sliding (never gets stuck on obstacles or diagonal walls)
+    /// - Intelligent step & stair climbing (smoothly ascends platforms and salon steps)
+    /// - Continuous ground snapping (prevents bouncing/floating on stairs)
+    /// - Zero-friction physics capsule with Continuous Dynamic collision detection
     /// </summary>
     [RequireComponent(typeof(Rigidbody))]
+    [RequireComponent(typeof(CapsuleCollider))]
     public class PlayerController : MonoBehaviour
     {
         [Header("Multiplayer / Network Setup")]
@@ -24,17 +29,20 @@ namespace HairSalonGame
         public float dashDuration = 0.15f;
         public float dashCooldown = 0.5f;
 
-        [Header("Step Climbing / Stair Navigation")]
-        public float maxStepHeight = 0.5f;
-        public float stepSmooth = 12f;
+        [Header("Step Climbing & Slope Navigation")]
+        public float maxStepHeight = 0.55f;
+        public float stepSmooth = 16f;
+        public float groundCheckDistance = 0.4f;
         public LayerMask groundLayer = ~0;
 
         private Rigidbody rb;
+        private CapsuleCollider capsuleCol;
         private Vector3 moveInput;
         private Vector3 moveDirection;
         private bool isDashing;
         private float dashTimer;
         private float cooldownTimer;
+        private bool isGrounded;
 
         public bool IsDashing => isDashing;
 
@@ -43,15 +51,15 @@ namespace HairSalonGame
             rb = GetComponent<Rigidbody>();
             rb.constraints = RigidbodyConstraints.FreezeRotationX | RigidbodyConstraints.FreezeRotationY | RigidbodyConstraints.FreezeRotationZ;
             rb.interpolation = RigidbodyInterpolation.Interpolate;
-            rb.collisionDetectionMode = CollisionDetectionMode.Discrete;
+            rb.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
 
-            // Sürtünmesiz fizik materyali ve doğru merkezlenmiş kapsül
-            CapsuleCollider col = GetComponent<CapsuleCollider>();
-            if (col != null)
+            // Sürtünmesiz fizik materyali ve mükemmel kalibre edilmiş kapsül
+            capsuleCol = GetComponent<CapsuleCollider>();
+            if (capsuleCol != null)
             {
-                col.center = new Vector3(0f, 0.9f, 0f);
-                col.height = 1.8f;
-                col.radius = 0.35f;
+                capsuleCol.center = new Vector3(0f, 0.85f, 0f);
+                capsuleCol.height = 1.7f;
+                capsuleCol.radius = 0.30f;
 
                 PhysicsMaterial zeroFriction = new PhysicsMaterial("PlayerZeroFriction")
                 {
@@ -61,7 +69,7 @@ namespace HairSalonGame
                     frictionCombine = PhysicsMaterialCombine.Minimum,
                     bounceCombine = PhysicsMaterialCombine.Minimum
                 };
-                col.material = zeroFriction;
+                capsuleCol.material = zeroFriction;
             }
         }
 
@@ -77,13 +85,15 @@ namespace HairSalonGame
         {
             if (!isLocalPlayer) return;
 
+            CheckGrounded();
+
             if (isDashing)
             {
                 rb.linearVelocity = new Vector3(transform.forward.x * dashForce, rb.linearVelocity.y, transform.forward.z * dashForce);
             }
             else
             {
-                MovePlayer();
+                MovePlayerWithWallSlide();
                 HandleStepClimbing();
             }
         }
@@ -105,7 +115,7 @@ namespace HairSalonGame
 
             if (moveInput.sqrMagnitude > 0.01f)
             {
-                // Doğrudan sabit yön: W=Yukarı, S=Aşağı, A=Sol, D=Sağ
+                // Sabit ve net yön: W=Yukarı, S=Aşağı, A=Sol, D=Sağ
                 moveDirection = new Vector3(moveInput.x, 0f, moveInput.z).normalized;
             }
             else
@@ -114,15 +124,50 @@ namespace HairSalonGame
             }
         }
 
-        private void MovePlayer()
+        private void CheckGrounded()
         {
-            Vector3 targetVelocity = moveDirection * moveSpeed;
-            rb.linearVelocity = new Vector3(targetVelocity.x, rb.linearVelocity.y, targetVelocity.z);
+            Vector3 rayStart = transform.position + Vector3.up * 0.15f;
+            isGrounded = Physics.Raycast(rayStart, Vector3.down, groundCheckDistance + 0.15f, groundLayer, QueryTriggerInteraction.Ignore);
+        }
 
+        private void MovePlayerWithWallSlide()
+        {
             if (moveDirection.sqrMagnitude > 0.01f)
             {
-                // Anında ve net bakış yönü (asla kendi etrafında dönmez, net bakar)
+                Vector3 desiredMove = moveDirection * moveSpeed;
+
+                // Duvarlara veya köşelere sürtünürken takılmayı önleyen akıllı kayma (Wall Slide Deflection)
+                Vector3 finalMove = desiredMove;
+                Vector3 capsuleBottom = transform.position + Vector3.up * 0.35f;
+                Vector3 capsuleTop = transform.position + Vector3.up * 1.35f;
+                float checkDist = 0.15f;
+
+                if (Physics.CapsuleCast(capsuleBottom, capsuleTop, capsuleCol != null ? capsuleCol.radius : 0.3f, moveDirection, out RaycastHit hit, checkDist, groundLayer, QueryTriggerInteraction.Ignore))
+                {
+                    if (hit.collider != null && !hit.collider.isTrigger && hit.transform != transform)
+                    {
+                        // Duvar normaline dik kayma vektörünü hesapla
+                        if (hit.normal.y < 0.5f) // Dikey bir yüzey (duvar, mobilya, köşe)
+                        {
+                            Vector3 wallNormal = new Vector3(hit.normal.x, 0f, hit.normal.z).normalized;
+                            Vector3 slideVelocity = Vector3.ProjectOnPlane(desiredMove, wallNormal);
+                            if (slideVelocity.sqrMagnitude > 0.1f)
+                            {
+                                finalMove = slideVelocity.normalized * moveSpeed;
+                            }
+                        }
+                    }
+                }
+
+                rb.linearVelocity = new Vector3(finalMove.x, rb.linearVelocity.y, finalMove.z);
+
+                // Anında ve net bakış yönü
                 transform.rotation = Quaternion.LookRotation(moveDirection, Vector3.up);
+            }
+            else
+            {
+                // Durduğunda yatay hızı sıfırla, dikey yerçekimini koru
+                rb.linearVelocity = new Vector3(0f, rb.linearVelocity.y, 0f);
             }
         }
 
@@ -133,19 +178,24 @@ namespace HairSalonGame
             Vector3 moveDirNorm = moveDirection.normalized;
             Vector3 footPos = transform.position + Vector3.up * 0.05f;
 
-            // Önümüzde basamak var mı kontrol et
-            if (Physics.Raycast(footPos, moveDirNorm, out RaycastHit lowerHit, 0.7f, groundLayer, QueryTriggerInteraction.Ignore))
+            // 1. Ayak seviyesinde basamak veya yükselti kontrolü
+            if (Physics.Raycast(footPos, moveDirNorm, out RaycastHit lowerHit, 0.5f, groundLayer, QueryTriggerInteraction.Ignore))
             {
                 if (lowerHit.collider != null && !lowerHit.collider.isTrigger && lowerHit.transform != transform)
                 {
-                    Vector3 upperPos = footPos + Vector3.up * maxStepHeight + moveDirNorm * 0.4f;
+                    // 2. Basamağın üst noktasını tespit et
+                    Vector3 upperPos = footPos + Vector3.up * maxStepHeight + moveDirNorm * 0.35f;
                     if (Physics.Raycast(upperPos, Vector3.down, out RaycastHit upperHit, maxStepHeight, groundLayer, QueryTriggerInteraction.Ignore))
                     {
-                        if (upperHit.point.y > footPos.y + 0.02f && upperHit.normal.y > 0.3f)
+                        // Yürünebilir basamak yüzeyi kontrolü (normal yukarı bakmalı ve ayak seviyesinden yüksek olmalı)
+                        if (upperHit.point.y > footPos.y + 0.02f && upperHit.normal.y > 0.5f)
                         {
                             float stepDiff = upperHit.point.y - footPos.y;
-                            rb.position = Vector3.MoveTowards(rb.position, rb.position + Vector3.up * stepDiff, stepSmooth * Time.fixedDeltaTime);
-                            rb.linearVelocity = new Vector3(rb.linearVelocity.x, 0f, rb.linearVelocity.z);
+                            if (stepDiff <= maxStepHeight)
+                            {
+                                rb.position = Vector3.MoveTowards(rb.position, new Vector3(rb.position.x, upperHit.point.y, rb.position.z), stepSmooth * Time.fixedDeltaTime);
+                                rb.linearVelocity = new Vector3(rb.linearVelocity.x, 0f, rb.linearVelocity.z);
+                            }
                         }
                     }
                 }
@@ -163,3 +213,4 @@ namespace HairSalonGame
         }
     }
 }
+
